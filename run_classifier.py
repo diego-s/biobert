@@ -739,10 +739,13 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
       def metric_fn(per_example_loss, label_ids, logits, is_real_example):
         predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
-        accuracy = tf.metrics.accuracy(
+        weighted_accuracy = tf.compat.v1.metrics.accuracy(
             labels=label_ids, predictions=predictions, weights=is_real_example)
+        accuracy = tf.compat.v1.metrics.accuracy(
+            labels=label_ids, predictions=predictions)
         loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
         return {
+            "eval_weighted_accuracy": weighted_accuracy,
             "eval_accuracy": accuracy,
             "eval_loss": loss,
         }
