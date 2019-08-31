@@ -387,6 +387,7 @@ class AdeProcessor(DataProcessor):
     self._build_examples()
   
   def _get_random_subset(self):
+    import random
     random_number = random.uniform(0, 1)
     if random_number <= 0.7:
       subset = "train"
