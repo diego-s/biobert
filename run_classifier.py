@@ -386,15 +386,24 @@ class AdeProcessor(DataProcessor):
     }
     self._build_examples()
   
+  def _get_random_subset(self):
+    random_number = random.uniform(0, 1)
+    if random_number <= 0.7:
+      subset = "train"
+    elif random_number <= 0.85:
+      subset = "dev"
+    else:
+      subset = "test"
+    return subset
+  
   def _build_examples(self):
     ade_corpus.download_source_data(FLAGS.data_dir)
-    import numpy as np
-    np.random.seed(9999)
+    import random
+    random.seed(9999)
     count = 0
     for pmid, sentences, labels in ade_corpus.get_classification_examples(
         FLAGS.data_dir):
-        subset = numpy.random.choice(["train", "dev", "test"], 
-            p=[0.7, 0.15, 0.15])
+        subset = _get_random_subset()
         for i in range(len(sentences)):
             count += 1
             guid = "%s-%d" % (pmid, count)
