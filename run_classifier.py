@@ -25,6 +25,7 @@ import modeling
 import optimization
 import tokenization
 import tensorflow as tf
+from pypharma_nlp import ade_corpus
 
 flags = tf.flags
 
@@ -372,6 +373,50 @@ class ColaProcessor(DataProcessor):
       examples.append(
           InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
     return examples
+
+
+class AdeProcessor(DataProcessor):
+  """Processor for the ADE Corpus V2."""
+  
+  def __init__(self):
+    self._examples = {
+        "train" : [], 
+        "dev" : [], 
+        "test" : [], 
+    }
+    self._build_examples()
+  
+  def _build_examples():
+    ade_corpus.download_source_data(os.path.join("data", "ade_corpus"))
+    import numpy as np
+    np.random.seed(9999)
+    count = 0
+    for pmid, sentences, labels in ade_corpus.get_classification_examples:
+        subset = numpy.random.choice(["train", "dev", "test"], 
+            p=[0.7, 0.15, 0.15])
+        for i in range(len(sentences)):
+            count += 1
+            guid = "%s-%d" % (pmid, count)
+            text_a = tokenization.convert_to_unicode(sentences[i])
+            example = InputExample(guid=str(count), text_a=text_a, text_b=None, 
+                label=labels[i])
+            self._examples[subset].append(example)
+            
+  def get_train_examples(self, data_dir):
+    """See base class."""
+    return self._examples["train"]
+
+  def get_dev_examples(self, data_dir):
+    """See base class."""
+    return self._examples["dev"]
+
+  def get_test_examples(self, data_dir):
+    """See base class."""
+    return self._examples["test"]
+
+  def get_labels(self):
+    """See base class."""
+    return ["Neg", "AE"]
 
 
 def convert_single_example(ex_index, example, label_list, max_seq_length,
@@ -788,6 +833,7 @@ def main(_):
       "mnli": MnliProcessor,
       "mrpc": MrpcProcessor,
       "xnli": XnliProcessor,
+      "ade" : AdeProcessor, 
   }
 
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
