@@ -386,7 +386,7 @@ class AdeProcessor(DataProcessor):
     }
     self._build_examples()
   
-  def _build_examples():
+  def _build_examples(self):
     ade_corpus.download_source_data(FLAGS.data_dir)
     import numpy as np
     np.random.seed(9999)
