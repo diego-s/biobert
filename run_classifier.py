@@ -391,7 +391,7 @@ class AdeProcessor(DataProcessor):
     import numpy as np
     np.random.seed(9999)
     count = 0
-    for pmid, sentences, labels in ade_corpus.get_classification_examples:
+    for pmid, sentences, labels in ade_corpus.get_classification_examples():
         subset = numpy.random.choice(["train", "dev", "test"], 
             p=[0.7, 0.15, 0.15])
         for i in range(len(sentences)):
