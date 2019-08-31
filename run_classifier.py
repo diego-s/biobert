@@ -403,7 +403,7 @@ class AdeProcessor(DataProcessor):
     count = 0
     for pmid, sentences, labels in ade_corpus.get_classification_examples(
         FLAGS.data_dir):
-        subset = _get_random_subset()
+        subset = self._get_random_subset()
         for i in range(len(sentences)):
             count += 1
             guid = "%s-%d" % (pmid, count)
