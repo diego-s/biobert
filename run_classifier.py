@@ -25,7 +25,7 @@ import modeling
 import optimization
 import tokenization
 import tensorflow as tf
-from pypharma_nlp import ade_corpus
+from pypharma_nlp.data import ade_corpus
 
 flags = tf.flags
 
