@@ -485,8 +485,18 @@ class HocProcessor(DataProcessor):
 
   def get_labels(self):
     """See base class."""
-    return ["Neg", "AE"]
-
+    return [
+        'activating invasion and metastasis', 
+        'avoiding immune destruction', 
+        'cellular energetics', 
+        'enabling replicative immortality', 
+        'evading growth suppressors', 
+        'genomic instability and mutation', 
+        'inducing angiogenesis', 
+        'resisting cell death', 
+        'sustaining proliferative signaling', 
+        'tumor promoting inflammation'
+    ]
 
 
 def convert_single_example(ex_index, example, label_list, max_seq_length,
