@@ -26,6 +26,7 @@ import optimization
 import tokenization
 import tensorflow as tf
 from pypharma_nlp.data import ade_corpus
+from pypharma_nlp.data import hallmarks_of_cancer
 
 flags = tf.flags
 
@@ -409,8 +410,9 @@ class AdeProcessor(DataProcessor):
             count += 1
             guid = "%s-%d" % (pmid, count)
             text_a = tokenization.convert_to_unicode(sentences[i])
+            label = tokenization.convert_to_unicode(labels[i])
             example = InputExample(guid=str(count), text_a=text_a, text_b=None, 
-                label=labels[i])
+                label=label)
             self._examples[subset].append(example)
             
   def get_train_examples(self, data_dir):
@@ -428,6 +430,63 @@ class AdeProcessor(DataProcessor):
   def get_labels(self):
     """See base class."""
     return ["Neg", "AE"]
+
+
+class HocProcessor(DataProcessor):
+  """Processor for the HoC Corpus."""
+  
+  def __init__(self):
+    self._examples = {
+        "train" : [], 
+        "dev" : [], 
+        "test" : [], 
+    }
+    self._build_examples()
+  
+  def _get_random_subset(self):
+    import random
+    random_number = random.uniform(0, 1)
+    if random_number <= 0.7:
+      subset = "train"
+    elif random_number <= 0.85:
+      subset = "dev"
+    else:
+      subset = "test"
+    return subset
+  
+  def _build_examples(self):
+    hallmarks_of_cancer.download_source_data(FLAGS.data_dir)
+    import random
+    random.seed(9999)
+    count = 0
+    for pmid, sentences, labels in 
+        hallmarks_of_cancer.get_classification_examples(FLAGS.data_dir):
+        subset = self._get_random_subset()
+        for i in range(len(sentences)):
+            count += 1
+            guid = "%s-%d" % (pmid, count)
+            text_a = tokenization.convert_to_unicode(sentences[i])
+            label = tokenization.convert_to_unicode(labels[i])
+            example = InputExample(guid=str(count), text_a=text_a, text_b=None, 
+                label=label)
+            self._examples[subset].append(example)
+            
+  def get_train_examples(self, data_dir):
+    """See base class."""
+    return self._examples["train"]
+
+  def get_dev_examples(self, data_dir):
+    """See base class."""
+    return self._examples["dev"]
+
+  def get_test_examples(self, data_dir):
+    """See base class."""
+    return self._examples["test"]
+
+  def get_labels(self):
+    """See base class."""
+    return ["Neg", "AE"]
+
 
 
 def convert_single_example(ex_index, example, label_list, max_seq_length,
@@ -845,6 +904,7 @@ def main(_):
       "mrpc": MrpcProcessor,
       "xnli": XnliProcessor,
       "ade" : AdeProcessor, 
+      "hoc" : HocProcessor, 
   }
 
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
