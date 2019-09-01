@@ -410,7 +410,7 @@ class AdeProcessor(DataProcessor):
             count += 1
             guid = "%s-%d" % (pmid, count)
             text_a = tokenization.convert_to_unicode(sentences[i])
-            label = tokenization.convert_to_unicode(" ".join(labels[i]))
+            label = tokenization.convert_to_unicode(labels[i])
             example = InputExample(guid=str(count), text_a=text_a, text_b=None, 
                 label=label)
             self._examples[subset].append(example)
@@ -429,7 +429,11 @@ class AdeProcessor(DataProcessor):
 
   def get_labels(self):
     """See base class."""
-    return ["Neg", "AE"]
+    labels = [
+        "Neg", 
+        "AE"
+    ]
+    return labels
 
 
 class HocProcessor(DataProcessor):
@@ -466,7 +470,8 @@ class HocProcessor(DataProcessor):
             count += 1
             guid = "%s-%d" % (pmid, count)
             text_a = tokenization.convert_to_unicode(sentences[i])
-            label = tokenization.convert_to_unicode(" ".join(labels[i]))
+            label = tokenization.convert_to_unicode(" ".join(["other"] + 
+                labels[i]))
             example = InputExample(guid=str(count), text_a=text_a, text_b=None, 
                 label=label)
             self._examples[subset].append(example)
@@ -485,18 +490,20 @@ class HocProcessor(DataProcessor):
 
   def get_labels(self):
     """See base class."""
-    return [
-        'activating invasion and metastasis', 
-        'avoiding immune destruction', 
-        'cellular energetics', 
-        'enabling replicative immortality', 
-        'evading growth suppressors', 
-        'genomic instability and mutation', 
-        'inducing angiogenesis', 
-        'resisting cell death', 
-        'sustaining proliferative signaling', 
-        'tumor promoting inflammation'
+    labels = [
+        "other", # dummy class
+        "activating invasion and metastasis", 
+        "avoiding immune destruction", 
+        "cellular energetics", 
+        "enabling replicative immortality", 
+        "evading growth suppressors", 
+        "genomic instability and mutation", 
+        "inducing angiogenesis", 
+        "resisting cell death", 
+        "sustaining proliferative signaling", 
+        "tumor promoting inflammation", 
     ]
+    return labels
 
 
 def convert_single_example(ex_index, example, label_list, max_seq_length,
