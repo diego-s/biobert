@@ -459,7 +459,7 @@ class HocProcessor(DataProcessor):
     import random
     random.seed(9999)
     count = 0
-    for pmid, sentences, labels in 
+    for pmid, sentences, labels in \
         hallmarks_of_cancer.get_classification_examples(FLAGS.data_dir):
         subset = self._get_random_subset()
         for i in range(len(sentences)):
