@@ -471,7 +471,7 @@ class HocProcessor(DataProcessor):
             guid = "%s-%d" % (pmid, count)
             text_a = tokenization.convert_to_unicode(sentences[i])
             label = tokenization.convert_to_unicode(" ".join(["other"] + 
-                labels[i]))
+                ["_".join(l) for l in labels[i]]))
             example = InputExample(guid=str(count), text_a=text_a, text_b=None, 
                 label=label)
             self._examples[subset].append(example)
