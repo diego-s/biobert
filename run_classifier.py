@@ -416,8 +416,9 @@ class AdeProcessor(DataProcessor):
     example_tuples = sorted(example_tuples, key=lambda t: t[0])
     for example_tuple in example_tuples:
         subset = self._get_random_subset()
-        self._examples[subset] = InputExample(guid=example_tuples[0], 
+        input_example = InputExample(guid=example_tuples[0], 
             text_a=example_tuples[1], text_b=None, label=example_tuples[2])
+        self._examples[subset].append(input_example)
             
   def get_train_examples(self, data_dir):
     """See base class."""
