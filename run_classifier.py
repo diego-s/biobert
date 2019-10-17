@@ -390,9 +390,9 @@ class AdeProcessor(DataProcessor):
   def _get_random_subset(self):
     import random
     random_number = random.uniform(0, 1)
-    if random_number <= 0.7:
+    if random_number <= 0.8:
       subset = "train"
-    elif random_number <= 0.85:
+    elif random_number <= 0.9:
       subset = "dev"
     else:
       subset = "test"
@@ -403,17 +403,21 @@ class AdeProcessor(DataProcessor):
     import random
     random.seed(9999)
     count = 0
+    example_tuples = []
     for pmid, sentences, labels in ade_corpus.get_classification_examples(
         FLAGS.data_dir):
-        subset = self._get_random_subset()
         for i in range(len(sentences)):
             count += 1
             guid = "%s-%d" % (pmid, count)
             text_a = tokenization.convert_to_unicode(sentences[i])
             label = tokenization.convert_to_unicode(labels[i])
-            example = InputExample(guid=str(count), text_a=text_a, text_b=None, 
-                label=label)
-            self._examples[subset].append(example)
+            example = (pmid, text_a, label)
+            example_tuples.append(example)
+    example_tuples = sorted(example_tuples, key=lambda t: t[0])
+    for example_tuple in example_tuples:
+        subset = self._get_random_subset()
+        self._examples[subset] = InputExample(guid=example[0], 
+            text_a=examples[1], text_b=None, label=example[2])
             
   def get_train_examples(self, data_dir):
     """See base class."""
