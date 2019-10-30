@@ -390,7 +390,7 @@ class AdeProcessor(DataProcessor):
   def _get_random_subset(self):
     import random
     random_number = random.uniform(0, 1)
-    if random_number <= 0.8:
+    if random_number <= 0.9:
       subset = "train"
     elif random_number <= 0.9:
       subset = "dev"
@@ -403,7 +403,7 @@ class AdeProcessor(DataProcessor):
     import random
     random.seed(9999)
     count = 0
-    example_tuples = []
+    example_tuples = {}
     for pmid, sentences, labels in ade_corpus.get_classification_examples(
         FLAGS.data_dir):
         for i in range(len(sentences)):
@@ -411,14 +411,17 @@ class AdeProcessor(DataProcessor):
             guid = "%s-%d" % (pmid, count)
             text_a = tokenization.convert_to_unicode(sentences[i])
             label = tokenization.convert_to_unicode(labels[i])
-            example = (pmid, text_a, label)
-            example_tuples.append(example)
-    example_tuples = sorted(example_tuples, key=lambda t: t[0])
-    for example_tuple in example_tuples:
-        subset = self._get_random_subset()
-        input_example = InputExample(guid=example_tuple[0], 
-            text_a=example_tuple[1], text_b=None, label=example_tuple[2])
-        self._examples[subset].append(input_example)
+            example_tuple = (pmid, text_a, label)
+            if pmid not in example_tuples.keys():
+                example_tuples[pmid] = []
+            example_tuples[pmid].append(example_tuple)
+    pmids = sorted(example_tuples.keys())
+    for pmid in pmids:
+        for example_tuple in example_tuples[pmid]:
+            subset = self._get_random_subset()
+            input_example = InputExample(guid=example_tuple[0], 
+                text_a=example_tuple[1], text_b=None, label=example_tuple[2])
+            self._examples[subset].append(input_example)
             
   def get_train_examples(self, data_dir):
     """See base class."""
@@ -751,7 +754,28 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
     per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
     loss = tf.reduce_mean(per_example_loss)
 
-    return (loss, per_example_loss, logits, probabilities)
+    predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+    expected_labels = tf.argmax(one_hot_labels, axis=-1, output_type=tf.int32)
+    accuracy = tf.reduce_mean(tf.cast(tf.math.equal(expected_labels, 
+        predictions), tf.float32))
+    true_positives = tf.reduce_sum(tf.cast(tf.math.equal(expected_labels, 
+        predictions), tf.float32) * tf.cast(tf.math.equal(expected_labels, 0), 
+        tf.float32))
+    false_positives = tf.reduce_sum(tf.cast(tf.logical_not(tf.math.equal(
+        expected_labels, predictions)), tf.float32) * 
+        tf.cast(tf.math.equal(expected_labels, 0), tf.float32))
+    true_negatives = tf.reduce_sum(tf.cast(tf.math.equal(expected_labels, 
+        predictions), tf.float32) * tf.cast(tf.math.equal(expected_labels, 1), 
+        tf.float32))
+    false_negatives = tf.reduce_sum(tf.cast(tf.logical_not(tf.math.equal(
+        expected_labels, predictions)), tf.float32) * 
+        tf.cast(tf.math.equal(expected_labels, 1), tf.float32))
+    precision = true_positives / (true_positives + false_positives)
+    recall = true_positives / (true_positives + false_negatives)
+    specificity = true_negatives / (true_negatives + false_positives)
+
+    return (loss, accuracy, precision, recall, specificity, per_example_loss, 
+        logits, probabilities)
 
 
 def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
@@ -778,7 +802,8 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
-    (total_loss, per_example_loss, logits, probabilities) = create_model(
+    (total_loss, accuracy, precision, recall, specificity, per_example_loss, 
+        logits, probabilities) = create_model(
         bert_config, is_training, input_ids, input_mask, segment_ids, label_ids,
         num_labels, use_one_hot_embeddings)
 
@@ -805,6 +830,33 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
         init_string = ", *INIT_FROM_CKPT*"
       tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                       init_string)
+    
+    def metric_fn(per_example_loss, label_ids, logits, is_real_example):
+      predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+      accuracy = tf.compat.v1.metrics.accuracy(label_ids, predictions)
+      precision = tf.compat.v1.metrics.precision(label_ids, predictions)
+      recall = tf.compat.v1.metrics.recall(label_ids, predictions)
+
+      loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
+      return {
+          "eval_accuracy": accuracy,
+          "eval_precision": precision, 
+          "eval_recall": recall, 
+          "eval_loss": loss, 
+      }
+      
+    eval_metrics = (metric_fn,
+                    [per_example_loss, label_ids, logits, is_real_example])
+    
+    logging_hook = tf.train.LoggingTensorHook({
+      "total_loss" : total_loss, 
+      "accuracy" : accuracy,
+      "precision" : precision, 
+      "recall" : recall, 
+      "specificity" : specificity, 
+    }, every_n_iter=10)
+
+      
 
     output_spec = None
     if mode == tf.estimator.ModeKeys.TRAIN:
@@ -816,27 +868,12 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
           mode=mode,
           loss=total_loss,
           train_op=train_op,
-          scaffold_fn=scaffold_fn)
+          scaffold_fn=scaffold_fn, 
+          training_hooks = [logging_hook], 
+          eval_metrics = eval_metrics, 
+      )
     elif mode == tf.estimator.ModeKeys.EVAL:
 
-      def metric_fn(per_example_loss, label_ids, logits, is_real_example):
-        predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
-        accuracy = tf.compat.v1.metrics.accuracy(
-            labels=label_ids, predictions=predictions)
-        precision = tf.compat.v1.metrics.precision(
-            labels=label_ids, predictions=predictions)
-        recall = tf.compat.v1.metrics.recall(
-            labels=label_ids, predictions=predictions)
-        loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
-        return {
-            "eval_accuracy": accuracy,
-            "eval_precision": precision, 
-            "eval_recall": recall, 
-            "eval_loss": loss, 
-        }
-
-      eval_metrics = (metric_fn,
-                      [per_example_loss, label_ids, logits, is_real_example])
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
@@ -1106,13 +1143,15 @@ def main(_):
     with tf.gfile.GFile(output_predict_file, "w") as writer:
       num_written_lines = 0
       tf.logging.info("***** Predict results *****")
+      import re
       for (i, prediction) in enumerate(result):
         probabilities = prediction["probabilities"]
         if i >= num_actual_predict_examples:
           break
-        output_line = "\t".join(
-            str(class_probability)
-            for class_probability in probabilities) + "\n"
+        text = re.sub("[^a-zA-Z1-9 .,!?-]", " ", predict_examples[i].text_a)
+        output_line = "\t".join([text, predict_examples[i].label] + \
+            [str(class_probability) for class_probability in probabilities]) \
+            + "\n"
         writer.write(output_line)
         num_written_lines += 1
     assert num_written_lines == num_actual_predict_examples
