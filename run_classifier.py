@@ -392,7 +392,7 @@ class AdeProcessor(DataProcessor):
     random_number = random.uniform(0, 1)
     if random_number <= 0.9:
       subset = "train"
-    elif random_number <= 1.0:
+    elif random_number <= 0.9:
       subset = "dev"
     else:
       subset = "test"
@@ -417,8 +417,8 @@ class AdeProcessor(DataProcessor):
             example_tuples[pmid].append(example_tuple)
     pmids = sorted(example_tuples.keys())
     for pmid in pmids:
+        subset = self._get_random_subset()
         for example_tuple in example_tuples[pmid]:
-            subset = self._get_random_subset()
             input_example = InputExample(guid=example_tuple[0], 
                 text_a=example_tuple[1], text_b=None, label=example_tuple[2])
             self._examples[subset].append(input_example)
@@ -442,7 +442,6 @@ class AdeProcessor(DataProcessor):
         "AE"
     ]
     return labels
-
 
 class HocProcessor(DataProcessor):
   """Processor for the HoC Corpus."""
@@ -1155,6 +1154,26 @@ def main(_):
         writer.write(output_line)
         num_written_lines += 1
     assert num_written_lines == num_actual_predict_examples
+
+def write_ade_corpus():
+  import pandas as pd
+  FLAGS.data_dir = os.path.join("data", "ade_corpus")
+  processor = AdeProcessor()
+  rows = []
+  for example in processor.get_train_examples(FLAGS.data_dir):
+    rows.append((example.guid, example.text_a, example.label))
+  pd.DataFrame.from_records(rows, columns = ["pmid", "text", "label"]).\
+    to_csv(os.path.join(FLAGS.data_dir, "train.csv"), index=False)
+  rows = []
+  for example in processor.get_dev_examples(FLAGS.data_dir):
+    rows.append((example.guid, example.text_a, example.label))
+  pd.DataFrame.from_records(rows, columns = ["pmid", "text", "label"]).\
+    to_csv(os.path.join(FLAGS.data_dir, "dev.csv"), index=False)
+  rows = []
+  for example in processor.get_test_examples(FLAGS.data_dir):
+    rows.append((example.guid, example.text_a, example.label))
+  pd.DataFrame.from_records(rows, columns = ["pmid", "text", "label"]).\
+    to_csv(os.path.join(FLAGS.data_dir, "test.csv"), index=False)
 
 
 if __name__ == "__main__":
